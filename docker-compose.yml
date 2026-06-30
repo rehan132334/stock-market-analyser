@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: timegan-risk-analyzer
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - MODEL_PATH=/app/timegan_weights
+    volumes:
+      - ./timegan_weights:/app/timegan_weights
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: timegan-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+
+volumes:
+  model_weights:
+  logs:
